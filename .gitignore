@@ -1,0 +1,6 @@
+*.db
+.env
+.gradio/
+*.bin
+*.sqlite3
+*.pyc

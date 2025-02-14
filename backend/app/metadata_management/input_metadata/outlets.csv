@@ -1,0 +1,5 @@
+column_name,description
+outlet_id,PRIMARY KEY; Not Nullable; Identifier field
+outlet_name,Type: character varying; Descriptive name field; Store name with location number
+location,Type: character varying; Geographic location of the store
+size_sqft,Type: integer; Store size in square feet
