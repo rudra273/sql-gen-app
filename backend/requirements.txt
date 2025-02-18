@@ -10,3 +10,5 @@ python-dotenv
 sse-starlette
 langchain-chroma
 pandas
+SQLAlchemy
+business-rules

@@ -67,7 +67,7 @@ def get_query_specific_rules(user_query):
             },
             'actions': [
                 {
-                    'name': 'add_rule',  # Corrected action name
+                    'name': 'add_rule',  
                     'params': {'rule': 'Use appropriate date functions for filtering (e.g., EXTRACT, DATE_TRUNC)'}
                 }
             ]

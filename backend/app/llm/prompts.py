@@ -41,7 +41,7 @@ def get_prompt_template(user_query):
     # Get query-specific rules
     rules = get_query_specific_rules(user_query)
     rules_text = "\n".join([f"{i+1}. {rule}" for i, rule in enumerate(rules)])
-    print('rules_text', rules_text)
+    # print('rules_text', rules_text)
     
     return ChatPromptTemplate.from_messages([
         ("system", f"""You are an expert PostgreSQL query generator that provides helpful explanations. Generate queries based on the provided schema, context, and chat history.

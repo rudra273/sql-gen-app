@@ -12,3 +12,6 @@ class DatabricksDBCredentials(BaseModel):
     server_hostname: str = Field(..., description="Databricks Server Hostname")
     http_path: str = Field(..., description="Databricks HTTP Path")
     access_token: str = Field(..., description="Databricks Access Token")
+
+class ExecuteQueryRequest(BaseModel):
+    sql_query: str = Field(..., description="SQL query to execute")

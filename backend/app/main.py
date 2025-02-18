@@ -10,14 +10,24 @@ from app.db_management.schema_loader import load_db_schema, SCHEMA_OUTPUT_DIR
 from app.metadata_management.metadata_loader import process_metadata, METADATA_OUTPUT_FILE
 from app.db_management.connection import (DatabaseConnection, get_postgres_connection, 
                                           get_databricks_connection, PostgresConnection, DatabricksConnection )
-from app.db_management.schemas import PostgresDBCredentials, DatabricksDBCredentials
+from app.db_management.schemas import PostgresDBCredentials, DatabricksDBCredentials, ExecuteQueryRequest
 import os
 import json
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 env_vars = load_env_variables()
 llm, embeddings = initialize_llm()
 chat_history: List[Dict[str, str]] = []  # In-memory chat history
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/connect-postgres/")
@@ -75,9 +85,85 @@ async def load_metadata():
         raise HTTPException(status_code=500, detail=f"Failed to load metadata: {e}")
 
 
+# @app.post("/generate-query/")
+# async def generate_query(query_text: str):
+#     """Endpoint to generate SQL query using SSE for streaming, with dynamic vector store check."""
+#     global chat_history
+
+#     if not hasattr(app.state, 'db_connection'):
+#         raise HTTPException(status_code=400, detail="Database connection not established. Please connect to database first.")
+#     if not hasattr(app.state, 'schema_loaded'):
+#         raise HTTPException(status_code=400, detail="Database schema not loaded. Please load schema first.")
+
+#     async def event_stream():
+#         try:
+#             # Check if vector store exists, create if not
+#             if not os.path.exists(VECTOR_STORE_PATH) or not os.listdir(VECTOR_STORE_PATH):
+#                 yield json.dumps({"event": "status", "data": "Vector store not found. Creating..."})
+#                 try:
+#                     create_vector_store_from_files(
+#                         schema_path=os.path.join(SCHEMA_OUTPUT_DIR, 'schema.json'),
+#                         metadata_path=METADATA_OUTPUT_FILE,
+#                         persist_dir=VECTOR_STORE_PATH
+#                     )
+#                     yield json.dumps({"event": "status", "data": "Vector store created successfully."})
+#                 except Exception as e:
+#                     yield json.dumps({"event": "error", "data": f"Error creating vector store: {str(e)}"})
+#                     return  # Exit the generator without returning a value
+
+#             yield json.dumps({"event": "status", "data": "Analyzing schema..."})
+#             sql_query_explanation = generate_sql_query_with_llm(
+#                 user_query=query_text,
+#                 chat_history=chat_history,
+#                 embeddings=embeddings,
+#                 llm=llm,
+#                 vector_store_path=VECTOR_STORE_PATH
+#             )
+#             yield json.dumps({"event": "status", "data": "Generating SQL..."})
+#             yield json.dumps({"event": "sql_query", "data": sql_query_explanation})
+
+#             # Update chat history
+#             chat_history.extend([
+#                 {"role": "user", "content": query_text},
+#                 {"role": "assistant", "content": sql_query_explanation}
+#             ])
+
+#         except Exception as e:
+#             yield json.dumps({"event": "error", "data": str(e)})
+
+#     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+@app.post("/create-vector-store/")
+async def create_vector_store():
+    """Endpoint to create vector store from schema and metadata files."""
+    if not hasattr(app.state, 'schema_loaded'):
+        raise HTTPException(status_code=400, detail="Database schema not loaded. Please load schema first.")
+    if not hasattr(app.state, 'metadata_loaded'):
+        raise HTTPException(status_code=400, detail="Metadata not loaded. Please load metadata first.")
+    
+    try:
+        # Check if schema and metadata files exist
+        schema_path = os.path.join(SCHEMA_OUTPUT_DIR, 'schema.json')
+        if not os.path.exists(schema_path):
+            raise HTTPException(status_code=400, detail="Schema file not found. Please load schema first.")
+        if not os.path.exists(METADATA_OUTPUT_FILE):
+            raise HTTPException(status_code=400, detail="Metadata file not found. Please load metadata first.")
+        
+        # Create vector store
+        create_vector_store_from_files(
+            schema_path=schema_path,
+            metadata_path=METADATA_OUTPUT_FILE,
+            persist_dir=VECTOR_STORE_PATH
+        )
+        
+        return {"message": "Vector store created successfully", "path": VECTOR_STORE_PATH}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create vector store: {str(e)}")
+
+
 @app.post("/generate-query/")
 async def generate_query(query_text: str):
-    """Endpoint to generate SQL query using SSE for streaming, with dynamic vector store check."""
+    """Endpoint to generate SQL query using SSE for streaming."""
     global chat_history
 
     if not hasattr(app.state, 'db_connection'):
@@ -87,19 +173,10 @@ async def generate_query(query_text: str):
 
     async def event_stream():
         try:
-            # Check if vector store exists, create if not
+            # Check if vector store exists
             if not os.path.exists(VECTOR_STORE_PATH) or not os.listdir(VECTOR_STORE_PATH):
-                yield json.dumps({"event": "status", "data": "Vector store not found. Creating..."})
-                try:
-                    create_vector_store_from_files(
-                        schema_path=os.path.join(SCHEMA_OUTPUT_DIR, 'schema.json'),
-                        metadata_path=METADATA_OUTPUT_FILE,
-                        persist_dir=VECTOR_STORE_PATH
-                    )
-                    yield json.dumps({"event": "status", "data": "Vector store created successfully."})
-                except Exception as e:
-                    yield json.dumps({"event": "error", "data": f"Error creating vector store: {str(e)}"})
-                    return  # Exit the generator without returning a value
+                yield json.dumps({"event": "error", "data": "Vector store not found. Please call /create-vector-store/ endpoint first."})
+                return
 
             yield json.dumps({"event": "status", "data": "Analyzing schema..."})
             sql_query_explanation = generate_sql_query_with_llm(
@@ -123,22 +200,20 @@ async def generate_query(query_text: str):
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
+
 @app.post("/execute-query/")
-async def execute_query_endpoint(request: Request):
+async def execute_query_endpoint(request_body: ExecuteQueryRequest):
     """Endpoint to execute SQL query."""
     if not hasattr(app.state, 'db_connection'):
         raise HTTPException(status_code=400, detail="Database connection not established. Please connect to database first.")
 
-    request_body = await request.json()
-    sql_query = request_body.get("sql_query")
-
-    if not sql_query:
-        raise HTTPException(status_code=400, detail="SQL query is required.")
+    sql_query = request_body.sql_query
 
     db_connection: DatabaseConnection = app.state.db_connection
     results, columns, error = db_connection.execute_query(sql_query)
     formatted_results = db_connection.format_results(results, columns, error)
     return {"results": formatted_results, "error": error}
+
 
 
 # if __name__ == "__main__":
