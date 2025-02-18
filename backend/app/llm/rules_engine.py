@@ -46,8 +46,7 @@ def get_query_specific_rules(user_query):
         "Follow the exact schema for names",
         "Incorporate insights from additional context when available",
         "Ensure proper JOIN conditions",
-        "Handle NULL values appropriately",
-        "Ensure string comparisons are case-insensitive using ILIKE"
+        "Handle NULL values appropriately"
     ]
     
     variables = QueryVariables(user_query)
