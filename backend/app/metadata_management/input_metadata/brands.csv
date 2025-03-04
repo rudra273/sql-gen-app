@@ -1,0 +1,5 @@
+column_name,description
+brand_id,PRIMARY KEY; Not Nullable; Identifier field
+brand_name, Not Nullable; Descriptive name field; Unique brand identifier name
+category,  Not Nullable; Product category classification
+established_year, Not Nullable; Year when the brand was establishedx

@@ -1,0 +1,9 @@
+column_name,description
+sale_id,PRIMARY KEY; Not Nullable; Identifier field
+outlet_id,FOREIGN KEY; Not Nullable; Identifier field; References outlets table
+sale_date,Type: date; Date/time information; Records transaction date
+units_sold,Type: integer; Quantity of units sold in transaction
+revenue,Type: numeric;  Revenue amount; Total revenue for the transaction
+promotion_flag,Type: boolean; Boolean indicator; Indicates if sale was under promotion
+brand_name,Type: character varying; Descriptive name field; Brand name of the product sold
+product_name,Type: character varying; Descriptive name field; Complete product name including brand and details

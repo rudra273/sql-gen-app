@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+psycopg2-binary
+langchain
+langchain-openai
+chromadb
+pydantic
+pydantic-settings
+python-dotenv
+sse-starlette
+langchain-chroma
+pandas
+SQLAlchemy
+business-rules
+snowflake-connector-python
